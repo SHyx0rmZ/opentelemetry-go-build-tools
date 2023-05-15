@@ -29,14 +29,14 @@ import (
 	"go.opentelemetry.io/build-tools/multimod/internal/common"
 )
 
-func Run(versioningFile, moduleSetName, commitHash string, deleteModuleSetTags bool, shouldPrintTags bool) {
+func Run(versioningFile, moduleSetName, commitHash string, deleteModuleSetTags bool, shouldPrintTags bool, noSigning bool) {
 
 	repoRoot, err := repo.FindRoot()
 	if err != nil {
 		log.Fatalf("unable to change to repo root: %v", err)
 	}
 
-	t, err := newTagger(versioningFile, moduleSetName, repoRoot, commitHash, deleteModuleSetTags)
+	t, err := newTagger(versioningFile, moduleSetName, repoRoot, commitHash, deleteModuleSetTags, noSigning)
 	if err != nil {
 		log.Fatalf("Error creating new tagger struct: %v", err)
 	}
@@ -67,9 +67,10 @@ type tagger struct {
 	common.ModuleSetRelease
 	CommitHash plumbing.Hash
 	Repo       *git.Repository
+	NoSigning  bool
 }
 
-func newTagger(versioningFilename, modSetToUpdate, repoRoot, hash string, deleteModuleSetTags bool) (tagger, error) {
+func newTagger(versioningFilename, modSetToUpdate, repoRoot, hash string, deleteModuleSetTags bool, noSigning bool) (tagger, error) {
 	modRelease, err := common.NewModuleSetRelease(versioningFilename, modSetToUpdate, repoRoot)
 	if err != nil {
 		return tagger{}, fmt.Errorf("error creating tagger struct: %w", err)
@@ -101,6 +102,7 @@ func newTagger(versioningFilename, modSetToUpdate, repoRoot, hash string, delete
 		ModuleSetRelease: modRelease,
 		CommitHash:       fullCommitHash,
 		Repo:             repo,
+		NoSigning:        noSigning,
 	}, nil
 }
 
@@ -200,7 +202,12 @@ func (t tagger) tagAllModules(customTagger *object.Signature) error {
 			}
 			// TODO: figure out how to use go-git and gpg-agent without needing to have decrypted private key material
 			// #nosec G204
-			cmd := exec.Command("git", "tag", "-a", "-s", "-m", tagMessage, newFullTag, t.CommitHash.String())
+			var cmd *exec.Cmd
+			if t.NoSigning {
+				cmd = exec.Command("git", "tag", "-a", "-m", tagMessage, newFullTag, t.CommitHash.String())
+			} else {
+				cmd = exec.Command("git", "tag", "-a", "-s", "-m", tagMessage, newFullTag, t.CommitHash.String())
+			}
 			cmd.Dir = cfg.Core.Worktree
 			output, err2 := cmd.CombinedOutput()
 			if err2 != nil {

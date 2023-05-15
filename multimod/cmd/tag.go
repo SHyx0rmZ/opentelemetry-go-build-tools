@@ -28,6 +28,7 @@ var (
 	deleteModuleSetTags bool
 	moduleSetName       string
 	printTags           bool
+	noSigning           bool
 )
 
 // tagCmd represents the tag command
@@ -40,7 +41,7 @@ var tagCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Using versioning file", versioningFile)
 
-		tag.Run(versioningFile, moduleSetName, commitHash, deleteModuleSetTags, printTags)
+		tag.Run(versioningFile, moduleSetName, commitHash, deleteModuleSetTags, printTags, noSigning)
 	},
 }
 
@@ -71,5 +72,9 @@ func init() {
 
 	tagCmd.Flags().BoolVarP(&printTags, "print-tags", "p", false,
 		"Specify this flag to print all tags after tagging is complete. Printed tags are new-line delimited.",
+	)
+
+	tagCmd.Flags().BoolVarP(&noSigning, "no-signing", "n", false,
+		"Specify this flag to skip signing the tags.",
 	)
 }
